@@ -66,5 +66,5 @@ class QLearning(BaseDiscrete):
 
 class ExpectedSARSA(QLearning):
     def _get_next_q(self,obs):
-        return np.sum(self._get_softmax_probas(obs)*self.get_action_state_value(obs))
+        return np.sum(self._get_softmax_probas(obs,use_temp=False)*self.get_action_state_value(obs))
 

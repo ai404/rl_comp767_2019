@@ -69,9 +69,14 @@ class BaseFramework:
         self.init_action_value_f()
         self.hist.reset()
     
-    def _get_softmax_probas(self,obs):
-        z = np.exp(self.get_action_state_value(obs)/self.temperature)
-        return z / np.sum(z)
+    def _get_softmax_probas(self,obs,use_temp=True):
+        # we substracted the max to stabilize the softmax for small values of tempertures and positive large values of state-values
+        mx = max(self.get_action_state_value(obs))
+        if use_temp:
+            z = (self.get_action_state_value(obs)- mx)/self.temperature
+        else:
+            z = self.get_action_state_value(obs) - mx
+        return np.exp(z) / np.sum(np.exp(z))
     
     def get_action(self, obs, greedy=False):
         if not greedy and self.mode == "train":
