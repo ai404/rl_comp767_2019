@@ -28,67 +28,49 @@ class BaseFramework:
                 env_name, 
                 exploration="eps-greedy",
                 init_temperature=1000, 
-                n_steps=1, 
                 epsilon=0.5, 
                 decay=1, 
                 alpha=0.5, 
-                gamma=.7,
-                flatten_state = False):
-           
-        self.env = gym.make(env_name).env
+                gamma=.7):
         
-        self.flatten_state = flatten_state
-        self.is_discrete_state = False
-
-        self.state_size = self.env.observation_space.shape
-        if len(self.state_size) == 0:
-            self.state_size = self.env.observation_space.n
-            self.is_discrete_state = True
-        elif flatten_state:
-            self.state_size = np.array(self.state_size).sum()
-        
-        #TODO Handle discrete vs continious actions
-        # for now it only supports discrete action space
+        self.env = gym.make(env_name)
 
         self.n_actions = self.env.action_space.n
+        self.n_states = self.env.observation_space.n
+        
         self.init_eps = epsilon
         self.alpha = alpha
         self.gamma = gamma
         self.decay = decay
-        self.n_steps = n_steps
-        self.hist = History(n_steps+1)
         self.exploration = exploration
         self.init_temperature = init_temperature
         self.min_temperature = 1
         self.reset()
 
     def reset(self):
-        self.wins = 0
         self.temperature = self.init_temperature
         self.eps = self.init_eps
         self.init_action_value_f()
-        self.hist.reset()
     
     def _get_softmax_probas(self,obs,use_temp=True):
-        # we substracted the max to stabilize the softmax for small values of tempertures and positive large values of state-values
-        mx = max(self.get_action_state_value(obs))
+        mx = np.max(self.get_action_state_value(obs))
+        z = self.get_action_state_value(obs)- mx
         if use_temp:
-            z = (self.get_action_state_value(obs)- mx)/self.temperature
-        else:
-            z = self.get_action_state_value(obs) - mx
+            z = z/self.temperature
+        
         return np.exp(z) / np.sum(np.exp(z))
     
-    def get_action(self, obs, greedy=False):
-        if not greedy and self.mode == "train":
+    def get_action(self, obs):
+        if self.mode == "train":
             if self.exploration == "eps-greedy":
                 if random() < self.eps:
                     return self.env.action_space.sample()
             elif self.exploration == "softmax":
+                #return exp.get_action(self.q_function,obs)
                 p = self._get_softmax_probas(obs)
                 return choice(self.n_actions, 1, p=p)[0]
             else:
                 raise Exception("Unknown Exploration Method!")
-
         return np.argmax(self.get_action_state_value(obs))
     
     def update_lr(self):
@@ -98,48 +80,39 @@ class BaseFramework:
             elif self.exploration == "softmax" and self.temperature*self.decay>self.min_temperature:
                 self.temperature *= self.decay
     
-    def prepare(self,*vargs):
-        out_array = []
-
-        for arg in vargs[0]:
-            out_array.append(np.array(arg))
-        return out_array
-
-    def run(self,n_episodes,max_steps,render = False,greedy=False,mode="train",reset=True,verbose=1):
-
+    def run(self,n_episodes,render = False,mode="train",verbose=1):
         assert mode in ["train","test"],"Unknown Mode!"
         self.mode = mode
-        self.env._max_episode_steps = max_steps
 
         scores = []
         best_score = 0
         for i_episode in range(n_episodes):
-            if reset:
-                self.hist.reset()
-            prev_observation = np.array(self.env.reset())
-
             step = 0
             score = 0
-            while True:
+            done = False
+            
+            s = self.env.reset()
+            a = self.get_action(s)
+            
+            while not done:
                 if render:
                     self.env.render()
 
-                action = self.get_action(prev_observation, greedy=greedy)
-                observation, reward, done, _ = self.env.step(action)
-                self.hist.add((prev_observation, reward, action))
-
-                prev_observation = np.array(observation)
-                score+=reward
+                s_prime, reward, done, _ = self.env.step(a)
+                a_prime = self.get_action(s_prime)
                 
-                if self.mode == "train" and self.hist.size() == self.n_steps+1:
-                    self.evaluate()
+                if self.mode == "train":
+                    self.evaluate((s,a,reward,s_prime,a_prime))
 
-                if done or (max_steps is not None and step == max_steps):
-                    if verbose != 0:
-                        print(f"Episode {i_episode} - Max Score {best_score} - Score {score} - Step {step}")
-                        print("Episode finished after {} timesteps".format(step + 1))
-                    break
+                a = a_prime
+                s = s_prime
+                
+                score+=reward
                 step += 1
+            
+            if verbose != 0:
+                print(f"Episode {i_episode} - Max Score {best_score} - Score {score} - Step {step}")
+                print("Episode finished after {} timesteps".format(step + 1))
             self.update_lr()
             
             if best_score< score:
@@ -161,10 +134,15 @@ class BaseFramework:
 
 class BaseDiscrete(BaseFramework):
     def get_action_state_value(self,obs):
-        return self.q_function[hash(str(obs))]
+        return self.q_function[obs]
     
     def set_action_state_value(self,obs,value):
-        self.q_function[hash(str(obs))] = value
+        self.q_function[obs] = value
     
-    def init_action_value_f(self):
-        self.q_function =  defaultdict(lambda :rand(self.n_actions))
+    def init_action_value_f(self,random=True):
+        
+        self.q_function = {s: rand(self.n_actions) for s in range(self.n_states)}
+        
+        for location_id, (loc_row,loc_col) in enumerate(self.env.unwrapped.locs):
+            state_id = self.env.unwrapped.encode(loc_row, loc_col, location_id, location_id)
+            self.q_function[state_id] = np.zeros(self.n_actions)
