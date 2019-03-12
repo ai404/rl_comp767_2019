@@ -25,7 +25,7 @@ class Tiles:
 		self.bins=bins
 		self.tilings=tilings
 		self.gamma=gamma
-		self.values=self.initialiseTiles()
+		self.weights=self.initialiseTiles()
 		self.tilesLim=self.initialiseLimits()
 		self.ET=self.initialiseET()
 		self.prv_state=self.findTiles(state[0],state[1])
@@ -81,14 +81,22 @@ class Tiles:
 		state=self.findTiles(state[0],state[1])
 		value=0
 		for i in range(self.tilings):
-			value+=self.values[state[i,0],state[i,1],i]
+			value+=self.weights[state[i,0],state[i,1],i]
 		return value
 	
 	def updateValues(self,x,y,reward):
+		prev_value=0
+		for i in range(self.tilings):
+			prev_value+=self.weights[self.prv_state[i,0],self.prv_state[i,1],i]
+		
 		state=self.findTiles(x,y)
+		curr_value=self.get_value([x,y])
+		
 		self.ET*=self.lamb*self.gamma
+		TD_error=reward+self.gamma*curr_value-prev_value
+			
+		
 		for i in range(self.tilings):
 			self.ET[self.prv_state[i,0],self.prv_state[i,1],i]+=1
-			TD_error=reward+self.gamma*self.values[state[i,0],state[i,1],i]-self.values[self.prv_state[i,0],self.prv_state[i,1],i]
-			self.values[:,:,i]+=self.alpha/self.tilings*TD_error*self.ET[:,:,i]
+			self.weights[:,:,i]+=self.alpha/self.tilings*TD_error*self.ET[:,:,i]
 		self.prv_state=state

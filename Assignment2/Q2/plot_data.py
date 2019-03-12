@@ -8,7 +8,7 @@ def main():
 	lambdas=[0,0.3,0.7,0.9,1]
 	alphas=[1/4,1/8,1/16]
 	colors=['r','b','g']
-	with open('data.pkl', 'rb') as handle:
+	with open('data_2.pkl', 'rb') as handle:
 		data = pickle.load(handle)
 		
 	x=np.linspace(1,episodes,episodes)

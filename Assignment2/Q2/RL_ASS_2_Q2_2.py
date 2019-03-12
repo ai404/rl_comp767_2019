@@ -18,7 +18,7 @@ def main():
 	alphas=[1/4,1/8,1/16]
 	runs=np.round(np.random.rand(10)*10000,0)
 
-	state_0=[np.pi,0]
+	state_0=[0,0]
 	data=[]
 
 	for lamb in lambdas:
@@ -53,7 +53,7 @@ def main():
 			data_lambda.append(data_alpha)
 		data.append(data_lambda)
 		
-	with open('data.pkl', 'wb') as handle:
+	with open('data_2.pkl', 'wb') as handle:
 		pickle.dump(data, handle, protocol=pickle.HIGHEST_PROTOCOL)
 
 	## to visualize
