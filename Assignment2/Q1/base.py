@@ -129,7 +129,7 @@ class BaseFramework:
     def init_action_value_f(self):
         return NotImplementedError()
 
-    def evaluate(self):
+    def evaluate(self,params):
         return NotImplementedError()
 
 class BaseDiscrete(BaseFramework):
