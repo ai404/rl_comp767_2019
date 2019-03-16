@@ -3,6 +3,8 @@ import numpy as np
 from base import BaseDiscrete
 
 class SARSA(BaseDiscrete):
+    def is_off(self):
+        return False
     def evaluate(self,params):
         s,a,reward,s_prime,a_prime = params
 

@@ -47,6 +47,9 @@ class BaseFramework:
         self.min_temperature = 1
         self.reset()
 
+    def is_off(self):
+        return True
+    
     def reset(self):
         self.temperature = self.init_temperature
         self.eps = self.init_eps
@@ -99,12 +102,13 @@ class BaseFramework:
                     self.env.render()
 
                 s_prime, reward, done, _ = self.env.step(a)
-                a_prime = self.get_action(s_prime)
+                
+                a_prime = None if self.is_off() else self.get_action(s_prime)
                 
                 if self.mode == "train":
                     self.evaluate((s,a,reward,s_prime,a_prime))
 
-                a = a_prime
+                a = self.get_action(s_prime) if self.is_off() else a_prime
                 s = s_prime
                 
                 score+=reward
@@ -142,6 +146,7 @@ class BaseDiscrete(BaseFramework):
     def init_action_value_f(self,random=True):
         
         self.q_function = {s: rand(self.n_actions) for s in range(self.n_states)}
+        #self.q_function = {s: np.zeros(self.n_actions) for s in range(self.n_states)}
         
         for location_id, (loc_row,loc_col) in enumerate(self.env.unwrapped.locs):
             state_id = self.env.unwrapped.encode(loc_row, loc_col, location_id, location_id)
